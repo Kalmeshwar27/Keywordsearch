@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Common Keyword News Search</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 15px;
+      background: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+      color: #222;
+    }
+    #search-form {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    input[type="text"] {
+      padding: 10px;
+      width: 300px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 5px;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .error {
+      color: red;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .results {
+      background: white;
+      padding: 20px;
+      border-radius: 6px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    .article {
+      margin-bottom: 15px;
+    }
+    .article a {
+      font-weight: bold;
+      text-decoration: none;
+      color: #007bff;
+    }
+    .article a:hover {
+      text-decoration: underline;
+    }
+    .domains {
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+    #pagination {
+      text-align: center;
+      margin-top: 20px;
+    }
+    #pagination button {
+      margin: 0 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Common Keyword News Search</h1>
+  <div id="search-form">
+    <input type="text" id="keyword" placeholder="Enter keyword..." />
+    <button id="search-btn">Search</button>
+    <button id="download-btn" disabled>Download CSV</button>
+  </div>
+  <p id="error" class="error"></p>
+  <div id="results"></div>
+  <div id="pagination"></div>
+
+<script>
+  const searchBtn = document.getElementById("search-btn");
+  const downloadBtn = document.getElementById("download-btn");
+  const keywordInput = document.getElementById("keyword");
+  const errorEl = document.getElementById("error");
+  const resultsEl = document.getElementById("results");
+  const paginationEl = document.getElementById("pagination");
+
+  let currentKeyword = "";
+  let currentPage = 1;
+  let totalArticles = 0;
+  let perPage = 5;
+
+  async function fetchResults(keyword, page=1) {
+    errorEl.textContent = "";
+    resultsEl.innerHTML = "";
+    paginationEl.innerHTML = "";
+    downloadBtn.disabled = true;
+
+    try {
+      const res = await fetch("/search", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ keyword, page })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        errorEl.textContent = err.error || "Error fetching results";
+        return;
+      }
+      const data = await res.json();
+      displayResults(data);
+      currentKeyword = data.keyword;
+      currentPage = data.page;
+      totalArticles = data.total_articles;
+      perPage = data.per_page;
+      downloadBtn.disabled = false;
+      setupPagination();
+    } catch (e) {
+      errorEl.textContent = "Network error or server issue.";
+    }
+  }
+
+  function displayResults(data) {
+    const domainsText = `Domains publishing this keyword: ${data.domains.join(", ")}`;
+    const articlesHTML = data.articles.map(article => `
+      <div class="article">
+        <a href="${article.link}" target="_blank" rel="noopener noreferrer">${article.title}</a><br/>
+        <small>Published on: ${article.published_date} at ${article.published_time}</small>
+      </div>
+    `).join("");
+
+    resultsEl.innerHTML = `
+      <div class="domains">${domainsText}</div>
+      ${articlesHTML}
+    `;
+  }
+
+  function setupPagination() {
+    const totalPages = Math.ceil(totalArticles / perPage);
+    if (totalPages <= 1) return;
+
+    let buttonsHTML = "";
+    for (let i = 1; i <= totalPages; i++) {
+      buttonsHTML += `<button ${i === currentPage ? "disabled" : ""} data-page="${i}">${i}</button>`;
+    }
+    paginationEl.innerHTML = buttonsHTML;
+
+    paginationEl.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const page = Number(e.target.dataset.page);
+        fetchResults(currentKeyword, page);
+      });
+    });
+  }
+
+  searchBtn.addEventListener("click", () => {
+    const keyword = keywordInput.value.trim();
+    if (!keyword) {
+      errorEl.textContent = "Please enter a keyword.";
+      return;
+    }
+    fetchResults(keyword);
+  });
+
+  // CSV Download
+  downloadBtn.addEventListener("click", async () => {
+    if (!currentKeyword) return;
+
+    try {
+      const res = await fetch("/download_csv", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ keyword: currentKeyword })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Failed to download CSV.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${currentKeyword}_articles.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Error downloading CSV.");
+    }
+  });
+
+  // Optional: Trigger search on enter key
+  keywordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") searchBtn.click();
+  });
+</script>
+</body>
+</html>
