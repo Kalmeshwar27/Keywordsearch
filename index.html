@@ -36,8 +36,12 @@
       cursor: pointer;
       margin-left: 10px;
     }
-    button:hover {
+    button:hover:not(:disabled) {
       background-color: #0056b3;
+    }
+    button:disabled {
+      background-color: #999;
+      cursor: not-allowed;
     }
     .error {
       color: red;
@@ -71,18 +75,26 @@
     }
     #pagination button {
       margin: 0 5px;
+      padding: 5px 10px;
+      font-size: 14px;
+      border-radius: 4px;
+    }
+    #pagination button:disabled {
+      background-color: #666;
+      color: white;
+      cursor: default;
     }
   </style>
 </head>
 <body>
   <h1>Common Keyword News Search</h1>
   <div id="search-form">
-    <input type="text" id="keyword" placeholder="Enter keyword..." />
+    <input type="text" id="keyword" placeholder="Enter keyword..." autocomplete="off" />
     <button id="search-btn">Search</button>
     <button id="download-btn" disabled>Download CSV</button>
   </div>
   <p id="error" class="error"></p>
-  <div id="results"></div>
+  <div id="results" class="results"></div>
   <div id="pagination"></div>
 
 <script>
@@ -145,7 +157,10 @@
 
   function setupPagination() {
     const totalPages = Math.ceil(totalArticles / perPage);
-    if (totalPages <= 1) return;
+    if (totalPages <= 1) {
+      paginationEl.innerHTML = "";
+      return;
+    }
 
     let buttonsHTML = "";
     for (let i = 1; i <= totalPages; i++) {
@@ -170,7 +185,6 @@
     fetchResults(keyword);
   });
 
-  // CSV Download
   downloadBtn.addEventListener("click", async () => {
     if (!currentKeyword) return;
 

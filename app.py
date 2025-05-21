@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, redirect, url_for, request, jsonify, send_file, send_from_directory
 import feedparser
 import re
 import nltk
@@ -10,7 +10,9 @@ from datetime import datetime, timedelta
 import time
 import csv
 import io
+import os
 
+# Download required NLTK data files if not already present
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 nltk.download('stopwords')
@@ -98,7 +100,8 @@ fetch_and_process()
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    # Serve index.html from the current working directory (same folder as app.py)
+    return send_from_directory(os.getcwd(), "index.html")
 
 @app.route("/search", methods=["POST"])
 def search():
